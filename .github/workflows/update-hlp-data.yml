@@ -1,0 +1,53 @@
+name: Update HLP vault CSVs
+
+on:
+  schedule:
+    # Every 6 hours (UTC).
+    - cron: "17 0,6,12,18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-hlp-data
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Fetch and rebuild HLP index CSVs
+        run: python hlp/update_index.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hlp/data/hlp_raw.csv \
+                  hlp/data/hlp_index.csv \
+                  hlp/data/hlp_daily_index.csv \
+                  hlp/data/hlp_weekly_index.csv \
+                  hlp/data/hlp_index_native.csv \
+                  hlp/data/hlp_llama_tvl.csv
+          if git diff --staged --quiet; then
+            echo "No CSV changes."
+          else
+            git commit -m "chore(hlp): refresh vault index CSVs"
+            git push
+          fi
