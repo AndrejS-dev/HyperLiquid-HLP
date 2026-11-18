@@ -131,6 +131,13 @@ def compute_stats(df: pd.DataFrame, return_col: str, freq_label: str) -> dict:
         if np.isfinite(mean) and np.isfinite(ann_factor)
         else float("nan")
     )
+    median = float(rets_ex_first.median()) if len(rets_ex_first) else float("nan")
+    # CAGR if every period earned the median return (same compounding as mean_ann).
+    median_ann = (
+        (1.0 + median) ** ann_factor - 1.0
+        if np.isfinite(median) and np.isfinite(ann_factor)
+        else float("nan")
+    )
 
     downside = rets_ex_first[rets_ex_first < 0]
     downside_std = float(downside.std(ddof=1)) if len(downside) > 1 else float("nan")
@@ -159,7 +166,8 @@ def compute_stats(df: pd.DataFrame, return_col: str, freq_label: str) -> dict:
         "total_return": total_return,
         "cagr": cagr,
         "mean_period_return": mean,
-        "median_period_return": float(rets_ex_first.median()) if len(rets_ex_first) else float("nan"),
+        "median_period_return": median,
+        "median_ann": median_ann,
         "vol_period": vol,
         "vol_ann": vol_ann,
         "mean_ann": mean_ann,
@@ -376,18 +384,18 @@ def analyze(*, write_stats: bool | None = None) -> dict:
     return result
 
 
-def _pct(x: float) -> str:
-    return f"{100.0 * x:.2f}%" if x == x else "n/a"
+def _pct(x: float, digits: int = 2) -> str:
+    return f"{100.0 * x:.{digits}f}%" if x == x else "n/a"
 
 
 def _fmt_num(x: float, digits: int = 2) -> str:
     return f"{x:.{digits}f}" if x == x else "n/a"
 
 
-def _pp_delta(curr: float, base: float) -> str | None:
+def _pp_delta(curr: float, base: float, digits: int = 2) -> str | None:
     if curr != curr or base != base:
         return None
-    return f"{100.0 * (curr - base):+.2f} pp vs raw"
+    return f"{100.0 * (curr - base):+.{digits}f} pp vs raw"
 
 
 def _num_delta(curr: float, base: float, digits: int = 2) -> str | None:
@@ -782,6 +790,10 @@ def print_report(result: dict) -> None:
             f"best/worst period: {_pct(s['best_period_return'])} / {_pct(s['worst_period_return'])}"
         )
         print(f"share positive periods: {_pct(s['pct_positive_periods'])}")
+        print(
+            f"median period: {_pct(s['median_period_return'], 4)}   "
+            f"median CAGR: {_pct(s['median_ann'])}"
+        )
         print(f"TVL last: {s['tvl_last']:,.2f}")
 
     if result.get("rolling_daily_windows"):
@@ -1249,8 +1261,19 @@ def run_dashboard() -> None:
             ),
             (
                 "Median period",
-                _pct(headline["median_period_return"]),
-                _pp_delta(headline["median_period_return"], raw_headline["median_period_return"])
+                _pct(headline["median_period_return"], 4),
+                _pp_delta(
+                    headline["median_period_return"],
+                    raw_headline["median_period_return"],
+                    digits=4,
+                )
+                if cap_enabled
+                else None,
+            ),
+            (
+                "Median CAGR",
+                _pct(headline["median_ann"]),
+                _pp_delta(headline["median_ann"], raw_headline["median_ann"])
                 if cap_enabled
                 else None,
             ),
