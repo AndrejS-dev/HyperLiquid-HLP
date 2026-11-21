@@ -1474,7 +1474,7 @@ def run_dashboard() -> None:
         ].copy()
         show["account_value"] = show["account_value"].map(lambda x: f"{x:,.2f}")
         show["delta_pnl"] = show["delta_pnl"].map(lambda x: f"{x:,.2f}")
-        show[return_col] = show[return_col].map(lambda x: _pct(float(x)))
+        show[return_col] = show[return_col].map(lambda x: _pct(float(x), 4))
         show["index"] = show["index"].map(lambda x: f"{x:.6f}")
         st.dataframe(show, use_container_width=True, hide_index=True)
 
